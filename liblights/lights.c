@@ -15,8 +15,8 @@
  */
 
 
-#define LOG_NDEBUG 0
-#define LOG_TAG "lights"
+#define ALOG_NDEBUG 0
+#define ALOG_TAG "lights"
 
 #include <cutils/log.h>
 
@@ -57,7 +57,7 @@ static int write_int(char const* path, int value) {
 		return amt == -1 ? -errno : 0;
 	} else {
 		if (already_warned == 0) {
-			LOGE("write_int failed to open %s\n", path);
+			ALOGE("write_int failed to open %s\n", path);
 			already_warned = 1;
 		}
 		return -errno;
@@ -71,17 +71,21 @@ static int is_lit(struct light_state_t const* state) {
 #define IOCTL_SET_BL_LV           _IOW(0x11, 3, int)
 static int set_light_backlight(struct light_device_t* dev,
 		struct light_state_t const* state) {
+	ALOGE("Light set_light_backlight: entered\n");
 	int fd=open("/dev/avr", O_RDWR);
+	ALOGE("Light set_light_backlight: opened device\n");
 	//From lights.h
 	int color=state->color;
 	unsigned char brightness = (state->color)&0xff;
 	ioctl(fd, IOCTL_SET_BL_LV, brightness);
 	close(fd);
+	ALOGE("Light set_light_backlight: left\n");
 	return 0;
 }
 
 static int set_light_battery(struct light_device_t* dev,
 		struct light_state_t const* state) {
+	ALOGE("Light set_light_battery: entered\n");
 	if(state->color == 0xFFFF0000) {
 		if(state->flashMode==LIGHT_FLASH_TIMED) {
 			//Low and not charging
@@ -104,23 +108,24 @@ static int set_light_battery(struct light_device_t* dev,
 		//Off
 		write_int(POWER_LED_FILE, 0);
 	}
-	LOGE("Light battery: %p\n", state->color);
+	ALOGE("Light battery: %p\n", state->color);
 	return 0;
 }
 
 static int set_light_notifications(struct light_device_t* dev,
 		struct light_state_t const* state) {
+	ALOGE("Light set_light_notifications: entered\n");
 			if(state->color == 0xffffff) {
 				//Notification on
 				//Slow blink
-				LOGE("MAIL WRITE");
+				ALOGE("MAIL WRITE");
 				write_int(MAIL_LED_FILE, 1);
 				//write_int(CALL_LED_FILE, 3);
 			} 
 			else if(state->color == 0x00) {
 				//Notification off
 				//Off
-				LOGE("OFF");
+				ALOGE("OFF");
 				write_int(MAIL_LED_FILE, 0);
 				write_int(CALL_LED_FILE, 0);
 			} 
@@ -128,11 +133,11 @@ static int set_light_notifications(struct light_device_t* dev,
 				//Notification on
 				//Slow blink
 				//write_int(MAIL_LED_FILE, 0);
-				LOGE("CALL WRITE");
+				ALOGE("CALL WRITE");
 				write_int(CALL_LED_FILE, 1);
 			}
 
-	LOGE("Notification led: %p(%d,%d,%d)\n", state->color, state->flashMode, state->flashOnMS, state->flashOffMS);
+	ALOGE("Notification led: %p(%d,%d,%d)\n", state->color, state->flashMode, state->flashOnMS, state->flashOffMS);
 	return 0;
 }
 
@@ -162,6 +167,9 @@ static int close_lights(struct light_device_t *dev) {
 /** Open a new instance of a lights device using name */
 static int open_lights(const struct hw_module_t* module, char const* name,
 		struct hw_device_t** device) {
+
+	ALOGE("open_lights Opening lights\n");
+
 	int (*set_light)(struct light_device_t* dev,
 			struct light_state_t const* state);
 
@@ -174,12 +182,14 @@ static int open_lights(const struct hw_module_t* module, char const* name,
 	} else if (0 == strcmp(LIGHT_ID_NOTIFICATIONS, name)) {
 		set_light = set_light_notifications;
 	} else {
+	ALOGE("open_lights Error opening  lights\n");
 		return -EINVAL;
 	}
 
 	struct light_device_t *dev = malloc(sizeof(struct light_device_t));
 	memset(dev, 0, sizeof(*dev));
 
+	ALOGE("open_lights Setting hardware properties\n");
 	dev->common.tag = HARDWARE_DEVICE_TAG;
 	dev->common.version = 0;
 	dev->common.module = (struct hw_module_t*)module;
@@ -187,6 +197,7 @@ static int open_lights(const struct hw_module_t* module, char const* name,
 	dev->set_light = set_light;
 
 	*device = (struct hw_device_t*)dev;
+	ALOGE("open_lights Complete!!!\n");
 	return 0;
 }
 
@@ -198,7 +209,8 @@ static struct hw_module_methods_t lights_module_methods = {
 /*
  * The lights Module
  */
-const struct hw_module_t HAL_MODULE_INFO_SYM = {
+//const struct hw_module_t HAL_MODULE_INFO_SYM = {
+struct hw_module_t HAL_MODULE_INFO_SYM = {
 	.tag = HARDWARE_MODULE_TAG,
 	.version_major = 1,
 	.version_minor = 0,

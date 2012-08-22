@@ -15,14 +15,14 @@
 # Prebuilt libraries that are needed to build open-source libraries
 
 ## (1) Copy Configuration files
+#    device/acer/salsa/proprietary/copybit.qsd8k.so:system/lib/hw/copybit.qsd8k.so \
+#    device/acer/salsa/proprietary/hwcomposer.qsd8k.so:system/lib/hw/hwcomposer.qsd8k.so \
 PRODUCT_COPY_FILES += \
     device/acer/salsa/proprietary/vold.fstab:system/etc/vold.fstab \
     device/acer/salsa/proprietary/media_profiles.xml:system/etc/media_profiles.xml \
     device/acer/salsa/proprietary/sysctl.conf:system/etc/sysctl.conf \
     device/acer/salsa/proprietary/dhcpcd.conf:system/etc/dhcpcd/dhcpcd.conf \
     device/acer/salsa/proprietary/wpa_supplicant.conf:system/etc/wifi/wpa_supplicant.conf \
-    device/acer/salsa/proprietary/copybit.qsd8k.so:system/lib/hw/copybit.qsd8k.so \
-    device/acer/salsa/proprietary/hwcomposer.qsd8k.so:system/lib/hw/hwcomposer.qsd8k.so \
     device/acer/salsa/proprietary/GooManager.apk:system/app/GooManager.apk
 
 ## (2) Keypad and Touchscreen

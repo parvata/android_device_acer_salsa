@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "AudioPolicyManager"
-//#define LOG_NDEBUG 0
+#define ALOG_TAG "AudioPolicyManager"
+//#define ALOG_NDEBUG 0
 #include <utils/Log.h>
 #include "AudioPolicyManager.h"
 #include <media/mediarecorder.h>
+
+// This has been removed
+#undef WITH_A2DP
 
 namespace android_audio_legacy {
 
@@ -49,13 +52,13 @@ extern "C" void destroyAudioPolicyManager(AudioPolicyInterface *interface)
 // ---
 
 
-uint32_t AudioPolicyManager::getDeviceForStrategy(routing_strategy strategy, bool fromCache)
+audio_devices_t AudioPolicyManager::getDeviceForStrategy(routing_strategy strategy, bool fromCache)
 {
-    uint32_t device = 0;
+    audio_devices_t device = (audio_devices_t)0;
 
     if (fromCache) {
         device = mDeviceForStrategy[strategy];
-        LOGV("getDeviceForStrategy() from cache strategy %d, device %x", strategy, device);
+        ALOGV("getDeviceForStrategy() from cache strategy %d, device %x", strategy, device);
         return device;
     }
 
@@ -75,64 +78,64 @@ uint32_t AudioPolicyManager::getDeviceForStrategy(routing_strategy strategy, boo
         switch (mForceUse[AudioSystem::FOR_COMMUNICATION]) {
         case AudioSystem::FORCE_BT_SCO:
             if (mPhoneState != AudioSystem::MODE_IN_CALL || strategy != STRATEGY_DTMF) {
-                device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_CARKIT;
+                device = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_CARKIT);
                 if (device) break;
             }
             // otherwise (not docked) continue with selection
-            device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_HEADSET;
+            device = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_HEADSET);
             if (device) break;
-            device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO;
+            device = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO);
             if (device) break;
             // if SCO device is requested but no SCO device is available, fall back to default case
             // FALL THROUGH
 
         default:    // FORCE_NONE
-            device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_WIRED_HEADPHONE;
+            device = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_WIRED_HEADPHONE);
             if (device) break;
-            device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_WIRED_HEADSET;
+            device = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_WIRED_HEADSET);
             if (device) break;
             // when not in call:
             if (mPhoneState != AudioSystem::MODE_IN_CALL) {
                 // - if we are docked to a BT CAR dock, give A2DP preference over earpiece
                 // - if we are docked to a BT DESK dock, give speaker preference over earpiece
                 if (mForceUse[AudioSystem::FOR_DOCK] == AudioSystem::FORCE_BT_CAR_DOCK) {
-                    device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP;
+                    device = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP);
                 } else if (mForceUse[AudioSystem::FOR_DOCK] == AudioSystem::FORCE_BT_DESK_DOCK) {
-                    device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_SPEAKER;
+                    device = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_SPEAKER);
                 }
                 if (device) break;
                 // - phone strategy should route STREAM_VOICE_CALL to A2DP
-                device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP;
+                device = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP);
                 if (device) break;
-                device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES;
+                device = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES);
                 if (device) break;
             }
-            device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_EARPIECE;
+            device = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_EARPIECE);
             if (device == 0) {
-                LOGE("getDeviceForStrategy() earpiece device not found");
+                ALOGE("getDeviceForStrategy() earpiece device not found");
             }
             break;
 
         case AudioSystem::FORCE_SPEAKER:
             if (mPhoneState != AudioSystem::MODE_IN_CALL || strategy != STRATEGY_DTMF) {
-                device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_CARKIT;
+                device = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_CARKIT);
                 if (device) break;
             }
             // when not in call:
             if (mPhoneState != AudioSystem::MODE_IN_CALL) {
                 // - if we are docked to a BT CAR dock, give A2DP preference over phone spkr
                 if (mForceUse[AudioSystem::FOR_DOCK] == AudioSystem::FORCE_BT_CAR_DOCK) {
-                    device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP;
+                    device = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP);
                     if (device) break;
                 }
                 // - phone strategy should route STREAM_VOICE_CALL to A2DP speaker
                 //   when forcing to speaker output
-                device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER;
+                device = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER);
                 if (device) break;
             }
-            device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_SPEAKER;
+            device = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_SPEAKER);
             if (device == 0) {
-                LOGE("getDeviceForStrategy() speaker device not found");
+                ALOGE("getDeviceForStrategy() speaker device not found");
             }
             break;
         }
@@ -150,27 +153,28 @@ uint32_t AudioPolicyManager::getDeviceForStrategy(routing_strategy strategy, boo
         // - if we are docked to a BT CAR dock, don't duplicate for the sonification strategy
         // - if we are docked to a BT DESK dock, use only speaker for the sonification strategy
         if (mForceUse[AudioSystem::FOR_DOCK] != AudioSystem::FORCE_BT_CAR_DOCK) {
-            device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_SPEAKER;
+            device = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_SPEAKER);
             if (device == 0) {
-                LOGE("getDeviceForStrategy() speaker device not found");
+                ALOGE("getDeviceForStrategy() speaker device not found");
             }
             if (mForceUse[AudioSystem::FOR_DOCK] == AudioSystem::FORCE_BT_DESK_DOCK) {
                 if (mAvailableOutputDevices & AudioSystem::DEVICE_OUT_WIRED_HEADPHONE) {
-                    device |= AudioSystem::DEVICE_OUT_WIRED_HEADPHONE;
+                    //device |= (audio_devices_t)(AudioSystem::DEVICE_OUT_WIRED_HEADPHONE);
+                    device = (audio_devices_t)(device | AudioSystem::DEVICE_OUT_WIRED_HEADPHONE);
                 } else if (mAvailableOutputDevices & AudioSystem::DEVICE_OUT_WIRED_HEADSET) {
-                    device |= AudioSystem::DEVICE_OUT_WIRED_HEADSET;
+                    device = (audio_devices_t)(device | AudioSystem::DEVICE_OUT_WIRED_HEADSET);
                 }
                 break;
             }
         } else {
-            device = 0;
+            device = (audio_devices_t)0;
         }
         // The second device used for sonification is the same as the device used by media strategy
         // Note that when docked, we pick the device below (no duplication)
         // FALL THROUGH
 
     case STRATEGY_MEDIA: {
-        uint32_t device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_AUX_DIGITAL;
+        audio_devices_t device2 = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_AUX_DIGITAL);
 #ifdef WITH_A2DP
         if (mA2dpOutput != 0) {
             if (device2 == 0) {
@@ -179,57 +183,58 @@ uint32_t AudioPolicyManager::getDeviceForStrategy(routing_strategy strategy, boo
                 if (mForceUse[AudioSystem::FOR_DOCK] == AudioSystem::FORCE_BT_CAR_DOCK &&
                     strategy == STRATEGY_SONIFICATION &&
                     mPhoneState == AudioSystem::MODE_RINGTONE) {
-                    device2 = mAvailableOutputDevices &
+                    device2 = (audio_devices_t)(mAvailableOutputDevices &
                               (AudioSystem::DEVICE_OUT_SPEAKER |
                                AudioSystem::DEVICE_OUT_WIRED_HEADPHONE |
-                               AudioSystem::DEVICE_OUT_WIRED_HEADSET);
+                               AudioSystem::DEVICE_OUT_WIRED_HEADSET));
                 }
             }
         }
 #endif
         if (device2 == 0) {
-            device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_WIRED_HEADPHONE;
+            device2 = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_WIRED_HEADPHONE);
         }
         if (device2 == 0) {
-            device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_WIRED_HEADSET;
+            device2 = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_WIRED_HEADSET);
         }
 #ifdef WITH_A2DP
         if (mA2dpOutput != 0) {
             if (device2 == 0) {
-                device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP;
+                device2 = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP);
             }
             if (device2 == 0) {
-                device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES;
+                device2 = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES);
             }
             if (device2 == 0) {
-                device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER;
+                device2 = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER);
             }
         }
 #endif
         if (device2 == 0) {
-            device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_SPEAKER;
+            device = (audio_devices_t)(mAvailableOutputDevices & AudioSystem::DEVICE_OUT_SPEAKER);
         }
         // device is DEVICE_OUT_SPEAKER if we come from case STRATEGY_SONIFICATION, 0 otherwise
-        device |= device2;
+        //device |= device2;
+        device = (audio_devices_t)(device | device2);
         if (device == 0) {
-            LOGE("getDeviceForStrategy() speaker device not found");
+            ALOGE("getDeviceForStrategy() speaker device not found");
         }
         // Do not play media stream if in call and the requested device would change the hardware
         // output routing
         if (mPhoneState == AudioSystem::MODE_IN_CALL &&
             !AudioSystem::isA2dpDevice((AudioSystem::audio_devices)device) &&
             device != getDeviceForStrategy(STRATEGY_PHONE, false)) {
-            device = 0;
-            LOGV("getDeviceForStrategy() incompatible media and phone devices");
+            device = (audio_devices_t)0;
+            ALOGV("getDeviceForStrategy() incompatible media and phone devices");
         }
         } break;
 
     default:
-        LOGW("getDeviceForStrategy() unknown strategy: %d", strategy);
+        ALOGW("getDeviceForStrategy() unknown strategy: %d", strategy);
         break;
     }
 
-    LOGV("getDeviceForStrategy() strategy %d, device %x", strategy, device);
+    ALOGV("getDeviceForStrategy() strategy %d, device %x", strategy, device);
     return device;
 }
 
@@ -239,7 +244,7 @@ float AudioPolicyManager::computeVolume(int stream, int index, audio_io_handle_t
     // means the stream is muted. This overrides condition-specific modifications to the volume
     // computed in the generic APM
     if (index == mStreams[stream].mIndexMin) {
-        return AudioPolicyManagerBase::computeVolume(stream, index, output, device);
+        return AudioPolicyManagerBase::computeVolume(stream, index, output, (audio_devices_t)device);
     }
 
     // force volume on A2DP output to maximum if playing through car dock speakers
@@ -251,13 +256,13 @@ float AudioPolicyManager::computeVolume(int stream, int index, audio_io_handle_t
     }
 #endif
 
-    float volume = AudioPolicyManagerBase::computeVolume(stream, index, output, device);
+    float volume = AudioPolicyManagerBase::computeVolume(stream, index, output, (audio_devices_t)device);
 
     // limit stream volume when in call and playing over bluetooth SCO device to
     // avoid saturation
     if (mPhoneState == AudioSystem::MODE_IN_CALL && AudioSystem::isBluetoothScoDevice((AudioSystem::audio_devices)device)) {
         if (volume > IN_CALL_SCO_VOLUME_MAX) {
-            LOGV("computeVolume limiting SYSTEM volume %f to %f",volume, IN_CALL_SCO_VOLUME_MAX);
+            ALOGV("computeVolume limiting SYSTEM volume %f to %f",volume, IN_CALL_SCO_VOLUME_MAX);
             volume = IN_CALL_SCO_VOLUME_MAX;
         }
     }
